@@ -1,2 +1,5 @@
 *.pdf
 *.sublime-workspace
+tmp.py
+logerror/
+tutorial/

@@ -85,7 +85,7 @@ def get_network():
 
 
 def predict(mod):
-    it = mx.io.NDArrayIter(data={'data': np.array([[-0.5,-0.5], [-0.5,0.5], [0.5,-0.5], [0.5,0.5]])},
+    it = mx.io.NDArrayIter(data={'data': np.array([[-1,-1], [-1,1], [1,-1], [1,1]])},
         label={'softmax_label': np.array([0, 1, 1, 0])})
     mod_predict = mx.mod.Module(symbol=mod.symbol)
     mod_predict.bind(data_shapes=it.provide_data, label_shapes=it.provide_label)
@@ -93,22 +93,47 @@ def predict(mod):
     return mod2.predict(it)
 
 
-# def train():
-#     mod = get_network()
-#     train_iter = get_iter('train')
-#     val_iter = get_iter('validation')
-#     mod.bind(data_shapes=train_iter.provide_data,
-#         label_shapes=train_iter.provide_label)
-#     mod.init_params(initializer=mx.init.Xavier())
-#     mod.init_optimizer(optimizer='sgd', optimizer_params=(('learning_rate', 0.1), ))
-#     metric = mx.metric.create('acc')
-#     # train one epoch, i.e. going over the data iter one pass
-#     for i in range(config.num_epoches):
-#         for batch in train_iter:
-#             mod.forward(batch, is_train=True)       # compute predictions
-#             mod.update_metric(metric, batch.label)  # accumulate prediction accuracy
-#             mod.backward()                          # compute gradients
-#             mod.update()                            # update parameters using SGD
+def train():
+
+    def get_learning_rate(cepoch):
+        if cepoch < 100:
+            return 1e-1
+        elif cepoch < 200:
+            return 1e-2
+        return 1e-3
+
+    mod = get_network()
+    train_iter = get_iter('train')
+    val_iter = get_iter('validation')
+
+    mod.bind(data_shapes=train_iter.provide_data,
+        label_shapes=train_iter.provide_label, for_training=True)
+
+    # TODO: Add monitor support
+    monitor = None
+
+    # Initializer document:
+    # http://mxnet.io/api/python/optimization.html#mxnet.initializer.Initializer
+    mod.init_params(initializer=mx.init.Xavier())
+
+    # Optimizer document:
+    # http://mxnet.io/api/python/optimization.html#mxnet.optimizer.Optimizer
+    # A large learning rate, not actually used
+    opt = mx.optimizer.create('sgd', learning_rate=10)
+    mod.init_optimizer(optimizer=opt)
+
+    metric = mx.metric.create('acc')
+    # train one epoch, i.e. going over the data iter one pass
+    # TODO: continue training from existed model
+    begin_epoch = 0
+    for epo in range(begin_epoch, config.num_epoches):
+        tic = time.time()
+        opt.lr = get_learning_rate(epo)
+        for batch in train_iter:
+            mod.forward(batch, is_train=True)       # compute predictions
+            mod.update_metric(metric, batch.label)  # accumulate prediction accuracy
+            mod.backward()                          # compute gradients
+            mod.update()                            # update parameters using SGD
 
 
 def main():
